@@ -50,19 +50,21 @@ def get_dropbox_client() -> dropbox.Dropbox:
         app_secret=DROPBOX_APP_SECRET,
     )
 
-def resolve_unique_dropbox_path(dbx, base_path: str, ext: str) -> str:
+def resolve_unique_dropbox_path(dbx, base_path: str, ext: str, max_tries: int = 1000) -> str:
     counter = 0
     path = f"{base_path}.{ext}"
-    while True:
+    while counter < max_tries:
         try:
             dbx.files_get_metadata(path)
             counter += 1
             path = f"{base_path}_{counter}.{ext}"
         except ApiError as e:
-            if e.error.is_path() and e.error.get_path().is_not_found():
+            try:
+                if e.error.is_path() and e.error.get_path().is_not_found():
+                    return path
+            except Exception:
                 return path
-            else:
-                raise e
+    raise RuntimeError("resolve_unique_dropbox_path: too many conflicts, aborting.")
 
 def upload_with_chunks(dbx_client, data: bytes, dropbox_path: str):
     total = len(data)
@@ -118,26 +120,25 @@ def generate_image_summary(image_url: str, model: str = "gpt-4o") -> str:
                     "role": "system",
                     "content": (
     "당신은 SEO 최적화에 능한 마케팅 카피라이터입니다. 이미지를 보고 웹에서 사용할 디지털 에셋 설명을 생성해야 합니다.\n\n"
-
-    
     "아래 구조로 실제 설명을 출력하세요:\n"
     "<div class=\"desc\">\n"
     "  <div class=\"detail kr line-control\">\n"
     "    <h2>한국어 제목</h2>\n"
-    "    한국어로 된 200자 내외의 설명문. 형태/색상의 특징을 주로 묘사하며 추가적으로 어떤것을 제작할 때 유용하다식의 설명 (예측용도 포함, 필수포함 단어 : 언리얼, 유니티, 블렌더, 무료다운로드)\n"
+    "    한국어로 된 300자 내외의 설명문. 형태/색상의 특징을 주로 묘사하며 추가적으로 어떤것을 제작할 때 유용하다식의 설명 (예측용도 포함, 필수포함 단어 : 언리얼, 유니티, 블렌더, 무료다운로드)\n"
     "  </div>\n"
     "  <div class=\"detail en line-control\">\n"
     "    <h2>English Title</h2>\n"
-    "    English description, about 200 characters(Including for predictive purposes,Required words: unreal, unity, blender, free download)\n"
+    "    English description, about 300 characters(Including for predictive purposes,Required words: unreal, unity, blender, free download)\n"
     "  </div>\n"
+    "  <div class=\"HiddenInfoForSearch\" style=\"display:none\">\n"    
+    "    롱테일키워드가 필요한 부분이야. 쉐이더 형태를 최대한 자세하게 묘사하고 이부분은 소프트웨어나 용도에 대한 설명을 자제해. 그냥 형태나 색감에 대해서만 이야기하라고 500자) \n"
+    "  </div>\n"    
     "</div>\n\n"
-
     "4. 마지막에는 JSON-LD `<script>` 태그로 구조화 데이터를 생성합니다.\n"
     "- 필드는 다음과 같습니다: `@context`, `@type`, `name`, `description`\n"
-    "- `image`, `url`, `offers` 필드는 값을 알 수 없으면 **아예 생략하십시오** (비우지 말고 속성 자체를 제거)\n"
+    "- `image`, `url`, `offers` 필드는 값을 알 수 없으면 **아예 생략하십시오**\n"
     "- 출력할 때 `<script type=\"application/ld+json\">{...}</script>` 전체를 포함해야 합니다\n\n"
-
-    "5. 디지털아트, 완벽합니다 등의 추상적/감상적인 표현은 절대 사용하지 마세요. 재질과 상태, 용도를 명확히 기술하십시오."
+    "5. 디지털아트, 완벽합니다, 자랑합니다 등의 추상적/감상적인 표현은 절대 사용하지 마세요. 이 이미지는이 아니라 동그란 물체는 쉐이더라고 지칭하세요."
   )
                 },
                 {
@@ -146,14 +147,13 @@ def generate_image_summary(image_url: str, model: str = "gpt-4o") -> str:
                         {
                             "type": "text",
                             "text": (
-                                "1. 이 이미지를 보고 SEO에 최적화된 설명을 생성해주세요. 줄 넘김도 예쁘게 해줘.\n"
-                                "2. 구글 검색 최적화를 위한 JSON-LD도 <script></script> 태그 안에 포함해줘. (단, ```json 으로 감싸지 마세요)\n"
-                                
+                                "1. 이 이미지를 보고 SEO에 최적화된 설명을 생성해주세요.\n"
+                                "2. 구글 검색 최적화를 위한 JSON-LD도 <script></script> 태그 안에 포함해줘.\n"
                             )
                         },
                         {
                             "type": "image_url",
-                            "image_url": { "url": raw_url }  # GPT가 인식할 이미지 URL
+                            "image_url": { "url": raw_url }
                         }
                     ]
                 }
@@ -174,7 +174,7 @@ def convert_dropbox_url(shared_url: str, param: str) -> str:
 
 def generate_html_snippet(asset_link: str, summary: str) -> str:
     return f'''<div class="info" style="display:none">
-[a-tag:\uc0ac\uc6a9\uc790\uc791\uc131]    
+[a-tag:사용자작성]    
 [downlink:{asset_link}]
 </div>
 
@@ -305,5 +305,5 @@ def main():
         except Exception as e:
             update_status(f"업로드 실패 - {e}")
 
-if __name__ == '__main__':
-    main()
+# Streamlit 앱 실행
+main()
