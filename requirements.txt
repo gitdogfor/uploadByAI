@@ -4,3 +4,4 @@ python-dotenv
 dropbox
 openai
 rembg
+onnxruntime
