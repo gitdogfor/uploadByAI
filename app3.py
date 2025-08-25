@@ -135,7 +135,7 @@ def generate_image_summary(image_url: str, model: str = "gpt-4o") -> str:
     "  </div>\n"    
     "</div>\n\n"
     "4. 마지막에는 JSON-LD `<script>` 태그로 구조화 데이터를 생성합니다.\n"
-    "- 필드는 다음과 같습니다. 단 타입은 반드시"ImageObject"로 표기: `@context`, `@type`, `name`, `description`\n"
+    "- 필드는 다음과 같습니다. 단 타입은 반드시 ImageObject로 표기: `@context`, `@type`, `name`, `description`\n"
     "- `image`, `url`, `offers` 필드는 값을 알 수 없으면 **아예 생략하십시오**\n"
     "- 출력할 때 `<script type=\"application/ld+json\">{...}</script>` 전체를 포함해야 합니다\n\n"
     "5. 디지털아트, 완벽합니다, 자랑합니다 등의 추상적/감상적인 표현은 절대 사용하지 마세요. 이 이미지는이 아니라 동그란 물체는 쉐이더라고 지칭하세요."
